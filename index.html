@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111111">
+  <meta name="description" content="A simple movie and TV episode player launcher.">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <title>Media Launcher</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #111; font-family: sans-serif; color: #fff; overflow: hidden; }
+    #controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(0,0,0,.88); padding: 12px 20px; border-radius: 8px; display: flex; gap: 10px; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,.5); max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center; }
+    select, input, button { padding: 8px 12px; border-radius: 4px; border: 1px solid #444; font-size: 14px; background: #222; color: #fff; }
+    #mediaId { width: 150px; }
+    .tv-field { width: 60px; }
+    button { background: #e50914; border: none; cursor: pointer; font-weight: bold; }
+    button:hover { background: #ff1f29; }
+    .hidden { display: none !important; }
+    #videoEmbed { width: 100vw; height: 100vh; border: none; display: block; background: #111; }
+    #videoEmbed.player-hidden { display: none; }
+    #status { position: absolute; inset: auto 12px 12px; text-align: center; color: #bbb; font-size: 13px; pointer-events: none; }
+    @media (max-width: 600px) { #controls { top: 12px; padding: 10px; gap: 7px; } select, input, button { font-size: 13px; padding: 8px; } #mediaId { width: 125px; } }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <select id="mediaType" aria-label="Media type" onchange="toggleFields()">
+      <option value="movie">Movie</option>
+      <option value="tv">TV Show</option>
+    </select>
+    <input type="text" id="mediaId" placeholder="TMDB ID (e.g. 803796)" aria-label="Content ID" inputmode="numeric">
+    <input type="number" id="season" class="tv-field hidden" placeholder="Season" aria-label="Season" min="1" value="1">
+    <input type="number" id="episode" class="tv-field hidden" placeholder="Episode" aria-label="Episode" min="1" value="1">
+    <button id="loadButton" type="button" onclick="loadMedia()">Load</button>
+  </div>
+  <iframe id="videoEmbed" class="player-hidden" src="about:blank" title="Media player" allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe>
+  <div id="status">Choose a movie or TV show and enter its content ID.</div>
+  <script>
+    function toggleFields() {
+      const isTv = document.getElementById('mediaType').value === 'tv';
+      document.querySelectorAll('.tv-field').forEach(field => field.classList.toggle('hidden', !isTv));
+      document.getElementById('mediaId').placeholder = isTv ? 'TV show ID' : 'Movie ID';
+    }
+
+    function loadMedia() {
+      const type = document.getElementById('mediaType').value;
+      const inputVal = document.getElementById('mediaId').value.trim();
+      const iframe = document.getElementById('videoEmbed');
+      const controls = document.getElementById('controls');
+      const status = document.getElementById('status');
+      const cleanId = inputVal.replace(/\D/g, '');
+
+      if (!inputVal || !cleanId) {
+        alert('Please enter a valid numeric content ID.');
+        return;
+      }
+
+      let finalUrl;
+      if (type === 'movie') {
+        finalUrl = `https://cinesrc.st/embed/movie/${cleanId}`;
+      } else {
+        const seasonRaw = document.getElementById('season').value;
+        const episodeRaw = document.getElementById('episode').value;
+        const season = Math.max(1, parseInt(seasonRaw, 10) || 1);
+        const episode = Math.max(1, parseInt(episodeRaw, 10) || 1);
+        finalUrl = `https://cinesrc.st/embed/tv/${cleanId}?s=${season}&e=${episode}`;
+      }
+
+      console.log('Loading media embed:', finalUrl);
+      iframe.src = finalUrl;
+      iframe.classList.remove('player-hidden');
+      controls.classList.add('hidden');
+      status.classList.add('hidden');
+    }
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !document.getElementById('controls').classList.contains('hidden')) loadMedia();
+      if (event.key === 'Escape' && !document.getElementById('controls').classList.contains('hidden')) {
+        document.getElementById('mediaId').focus();
+      }
+    });
+
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Service worker registration failed:', error)));
+    }
+  </script>
+</body>
+</html>
